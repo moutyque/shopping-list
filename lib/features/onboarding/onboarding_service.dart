@@ -5,10 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CoachKeys {
   static const stores = 'stores';
   static const build = 'build';
+  static const zones = 'zones';
   static const shop = 'shop';
   static const delete = 'delete';
 
-  static const all = [stores, build, shop, delete];
+  static const all = [stores, build, zones, shop, delete];
 }
 
 /// Tracks which coach-mark sequences the user has already seen. Abstracted so

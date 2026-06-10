@@ -3,26 +3,76 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
+import '../onboarding/coach_marks.dart';
+import '../onboarding/onboarding_service.dart';
 import '../stores/stores_screen.dart' show promptName;
 
 /// Manage a store's zones: add, rename, and set the baseline (seed) order by
 /// dragging. The learned order refines this over time but the seed order is the
 /// cold-start fallback.
-class ZonesScreen extends ConsumerWidget {
+class ZonesScreen extends ConsumerStatefulWidget {
   final Store store;
   const ZonesScreen({super.key, required this.store});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final zones = ref.watch(zonesProvider(store.id));
+  ConsumerState<ZonesScreen> createState() => _ZonesScreenState();
+}
+
+class _ZonesScreenState extends ConsumerState<ZonesScreen> {
+  final _fabKey = GlobalKey();
+  final _dragKey = GlobalKey();
+  final _editKey = GlobalKey();
+
+  /// Coach-marks fire once the list has at least one zone (so the drag/rename
+  /// targets exist). With zero zones the empty-state text already explains it.
+  bool _coachScheduled = false;
+
+  void _scheduleCoach() {
+    if (_coachScheduled) return;
+    _coachScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      maybeShowCoachMarks(context,
+          store: ref.read(onboardingProvider),
+          seenKey: CoachKeys.zones,
+          steps: [
+            CoachStep(
+              id: 'reorder',
+              key: _dragKey,
+              text: 'Drag a zone to set the order you walk the store — your '
+                  'shopping list follows this order.',
+            ),
+            CoachStep(
+              id: 'rename-zone',
+              key: _editKey,
+              text: 'Rename an aisle here.',
+            ),
+            CoachStep(
+              id: 'add-zone',
+              key: _fabKey,
+              align: ContentAlign.top,
+              text: 'Add more aisles any time.',
+            ),
+          ]);
+    });
+  }
+
+  Future<void> _addZone() async {
+    final name = await promptName(context, title: 'New zone');
+    if (name == null || name.isEmpty) return;
+    await ref
+        .read(zoneRepositoryProvider)
+        .createZone(storeId: widget.store.id, name: name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final zones = ref.watch(zonesProvider(widget.store.id));
     return Scaffold(
-      appBar: AppBar(title: Text('${store.name} · zones')),
+      appBar: AppBar(title: Text('${widget.store.name} · zones')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final name = await promptName(context, title: 'New zone');
-          if (name == null || name.isEmpty) return;
-          await ref.read(zoneRepositoryProvider).createZone(storeId: store.id, name: name);
-        },
+        key: _fabKey,
+        onPressed: _addZone,
         icon: const Icon(Icons.add),
         label: const Text('Zone'),
       ),
@@ -42,6 +92,7 @@ class ZonesScreen extends ConsumerWidget {
               ),
             );
           }
+          _scheduleCoach();
           return ReorderableListView.builder(
             itemCount: list.length,
             onReorderItem: (oldIndex, newIndex) {
@@ -60,15 +111,18 @@ class ZonesScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
+                      key: i == 0 ? _editKey : null,
                       icon: const Icon(Icons.edit_outlined),
                       onPressed: () async {
                         final name = await promptName(context,
                             title: 'Rename zone', initial: zone.name);
                         if (name == null || name.isEmpty) return;
-                        await ref.read(zoneRepositoryProvider).renameZone(zone.id, name);
+                        await ref
+                            .read(zoneRepositoryProvider)
+                            .renameZone(zone.id, name);
                       },
                     ),
-                    const Icon(Icons.drag_handle),
+                    Icon(Icons.drag_handle, key: i == 0 ? _dragKey : null),
                   ],
                 ),
               );
