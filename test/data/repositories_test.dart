@@ -145,6 +145,20 @@ void main() {
     expect((await stores.mostUsedStore())!.id, a.id);
   });
 
+  test('deleteStore cascades to its zones and lists', () async {
+    final store = await stores.createStore('Carrefour');
+    final dairy = await zones.createZone(storeId: store.id, name: 'Dairy');
+    final milk = await catalog.upsertItem('Milk');
+    final list = await lists.createList(store.id);
+    await lists.addEntry(listId: list.id, catalogItemId: milk.id, zoneId: dairy.id);
+
+    await stores.deleteStore(store.id);
+
+    expect(await stores.getStore(store.id), isNull);
+    expect(await zones.watchZones(store.id).first, isEmpty);
+    expect(await lists.watchEntries(list.id).first, isEmpty);
+  });
+
   test('placement remembers an item\'s usual zone (suggestions)', () async {
     final store = await stores.createStore('Carrefour');
     final dairy = await zones.createZone(storeId: store.id, name: 'Dairy');

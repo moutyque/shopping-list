@@ -33,6 +33,10 @@ class FakeStoreRepository implements StoreRepository {
       renames.add((storeId, name));
 
   @override
+  Future<void> deleteStore(int storeId) async =>
+      _stores.removeWhere((s) => s.id == storeId);
+
+  @override
   Future<Store> createStore(String name) => throw UnimplementedError();
   @override
   Future<Store?> getStore(int id) async {

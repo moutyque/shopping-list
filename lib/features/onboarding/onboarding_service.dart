@@ -6,8 +6,9 @@ class CoachKeys {
   static const stores = 'stores';
   static const build = 'build';
   static const shop = 'shop';
+  static const delete = 'delete';
 
-  static const all = [stores, build, shop];
+  static const all = [stores, build, shop, delete];
 }
 
 /// Tracks which coach-mark sequences the user has already seen. Abstracted so

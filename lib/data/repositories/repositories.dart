@@ -66,6 +66,9 @@ abstract class StoreRepository {
   /// Renames a store in place.
   Future<void> renameStore(int storeId, String name);
 
+  /// Deletes a store; its zones, placements, lists and entries cascade away.
+  Future<void> deleteStore(int storeId);
+
   /// The store to open by default on launch: the only store if there is one,
   /// otherwise the one with the most completed runs (ties broken by name).
   /// Null when there are no stores.

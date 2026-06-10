@@ -33,6 +33,10 @@ class DriftStoreRepository implements StoreRepository {
           .write(StoresCompanion(name: Value(name)));
 
   @override
+  Future<void> deleteStore(int storeId) =>
+      (db.delete(db.stores)..where((s) => s.id.equals(storeId))).go();
+
+  @override
   Future<Store?> mostUsedStore() async {
     final all = await (db.select(db.stores)
           ..orderBy([(s) => OrderingTerm.asc(s.name)]))

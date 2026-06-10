@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../list/build_list_screen.dart';
 import '../onboarding/coach_marks.dart';
+import '../onboarding/demo_data.dart';
 import '../onboarding/onboarding_service.dart';
 import '../shopping/shopping_screen.dart';
 
@@ -20,6 +21,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   /// list (e.g. via the Back button) doesn't re-trigger it.
   bool _firstFrameDone = false;
   final _fabKey = GlobalKey();
+  final _deleteKey = GlobalKey();
 
   @override
   void initState() {
@@ -48,10 +50,13 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
         CoachStep(
           id: 'add-store',
           key: _fabKey,
+          // The FAB is at the bottom edge, so the text must sit above it.
+          align: ContentAlign.top,
           text: 'Start here: add a store you shop at — '
               'each store keeps its own aisles and learned order.',
         ),
       ];
+
 
   Future<void> _replayTutorial() async {
     final store = ref.read(onboardingProvider);
@@ -70,6 +75,26 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     return await repo.activeList(store.id) ?? await repo.createList(store.id);
   }
 
+  /// The "closing move" of the tour: shown the first time the user lands back
+  /// on a non-empty store list (after building/shopping), pointing at delete.
+  List<CoachStep> _deleteSteps() => [
+        CoachStep(
+          id: 'delete-store',
+          key: _deleteKey,
+          text: 'Done exploring? Delete a store here — its zones, items and '
+              'history go with it. Try it on the demo when you\'re finished.',
+        ),
+      ];
+
+  void _maybeShowDeleteCoach() {
+    final stores = ref.read(storesProvider).asData?.value ?? const [];
+    if (stores.isEmpty || !mounted) return;
+    maybeShowCoachMarks(context,
+        store: ref.read(onboardingProvider),
+        seenKey: CoachKeys.delete,
+        steps: _deleteSteps());
+  }
+
   Future<void> _addStore() async {
     final name = await _promptName(context, title: 'New store');
     if (name == null || name.isEmpty) return;
@@ -83,20 +108,59 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     await ref.read(storeRepositoryProvider).renameStore(store.id, name);
   }
 
+  Future<void> _deleteStore(Store store) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${store.name}?'),
+        content: const Text(
+            'This removes the store with its zones, items and shopping history.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(storeRepositoryProvider).deleteStore(store.id);
+  }
+
+  /// Seeds and opens a fully-populated sample store so a new user sees a real
+  /// list straight away.
+  Future<void> _loadDemo() async {
+    final seed = await seedDemoStore(
+      stores: ref.read(storeRepositoryProvider),
+      zones: ref.read(zoneRepositoryProvider),
+      catalog: ref.read(catalogRepositoryProvider),
+      lists: ref.read(listRepositoryProvider),
+    );
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BuildListScreen(listId: seed.list.id, store: seed.store),
+    ));
+    _maybeShowDeleteCoach();
+  }
+
   Future<void> _openBuildList(Store store) async {
     final list = await _resumeOrCreate(store);
     if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => BuildListScreen(listId: list.id, store: store),
     ));
+    _maybeShowDeleteCoach();
   }
 
   Future<void> _openShopping(Store store) async {
     final list = await _resumeOrCreate(store);
     if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ShoppingScreen(listId: list.id, store: store),
     ));
+    _maybeShowDeleteCoach();
   }
 
   @override
@@ -124,10 +188,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (list) {
           if (list.isEmpty) {
-            return const _Empty(
+            return _Empty(
               icon: Icons.storefront_outlined,
               title: 'No stores yet',
               message: 'Add a store to start building location-aware lists.',
+              actionLabel: 'Load a demo store',
+              onAction: _loadDemo,
             );
           }
           return ListView.separated(
@@ -152,6 +218,13 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: 'Rename store',
                       onPressed: () => _renameStore(store),
+                    ),
+                    IconButton(
+                      // Key only on the first row, for the delete coach-mark.
+                      key: i == 0 ? _deleteKey : null,
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: 'Delete store',
+                      onPressed: () => _deleteStore(store),
                     ),
                   ],
                 ),
@@ -198,7 +271,15 @@ class _Empty extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
-  const _Empty({required this.icon, required this.title, required this.message});
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  const _Empty({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +294,14 @@ class _Empty extends StatelessWidget {
             Text(title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 24),
+              FilledButton.tonalIcon(
+                onPressed: onAction,
+                icon: const Icon(Icons.auto_awesome),
+                label: Text(actionLabel!),
+              ),
+            ],
           ],
         ),
       ),
