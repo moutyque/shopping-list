@@ -17,6 +17,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Exposed so the Firebase step can be skipped until the secret is set
+      # (secrets can't be referenced directly in `if:` conditions).
+      FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,10 +59,20 @@ jobs:
       # build-number drives versionCode, so each build installs over the last.
       - run: flutter build apk --release --build-number=${{ github.run_number }}
 
-      - name: Publish GitHub Release
+      - name: Publish GitHub Release (archive)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Build ${{ github.run_number }}
           files: build/app/outputs/flutter-apk/app-release.apk
           generate_release_notes: true
+
+      - name: Distribute to testers (Firebase App Distribution)
+        if: env.FIREBASE_APP_ID != ''
+        uses: wzieba/Firebase-Distribution-Github-Action@v1.7.1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: internal
+          file: build/app/outputs/flutter-apk/app-release.apk
+          releaseNotes: ${{ github.event.head_commit.message }}
