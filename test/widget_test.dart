@@ -8,6 +8,8 @@ import 'package:shopping_list/data/db/app_database.dart';
 import 'package:shopping_list/data/repositories/repositories.dart';
 import 'package:shopping_list/features/shopping/shopping_screen.dart';
 
+import 'support/fake_onboarding.dart';
+
 /*
  * Widget tests drive the screen through a fake repository with a controlled
  * stream — no real database, so there is no real-async I/O to hang on. The DB
@@ -121,7 +123,10 @@ void main() {
 
   Future<void> pumpScreen(WidgetTester tester) async {
     await tester.pumpWidget(ProviderScope(
-      overrides: [listRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        listRepositoryProvider.overrideWithValue(repo),
+        onboardingProvider.overrideWithValue(FakeOnboardingStore()),
+      ],
       child: const MaterialApp(home: ShoppingScreen(listId: 1, store: store)),
     ));
     await tester.pumpAndSettle();

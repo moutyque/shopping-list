@@ -6,6 +6,7 @@ import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
 import '../data/repositories/drift_repositories.dart';
 import '../data/repositories/repositories.dart';
+import '../features/onboarding/onboarding_service.dart';
 
 /*
  * Dependency wiring. The database provider is overridden in tests with an
@@ -21,6 +22,10 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 
 final learningServiceProvider =
     Provider<LearningService>((ref) => const LearningService());
+
+/// Tracks which coach-mark tours the user has seen. Overridden in tests.
+final onboardingProvider =
+    Provider<OnboardingStore>((ref) => PrefsOnboardingStore());
 
 final storeRepositoryProvider = Provider<StoreRepository>(
     (ref) => DriftStoreRepository(ref.watch(databaseProvider)));

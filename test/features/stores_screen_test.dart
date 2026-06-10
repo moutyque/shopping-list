@@ -8,6 +8,8 @@ import 'package:shopping_list/data/db/app_database.dart';
 import 'package:shopping_list/data/repositories/repositories.dart';
 import 'package:shopping_list/features/stores/stores_screen.dart';
 
+import '../support/fake_onboarding.dart';
+
 /*
  * Drives StoresScreen against fake repositories so the cart action, rename
  * dialog, and launch auto-open can be verified without a real database.
@@ -83,6 +85,7 @@ void main() {
       overrides: [
         storeRepositoryProvider.overrideWithValue(storeRepo),
         listRepositoryProvider.overrideWithValue(FakeListRepository()),
+        onboardingProvider.overrideWithValue(FakeOnboardingStore()),
       ],
       child: const MaterialApp(home: StoresScreen()),
     ));

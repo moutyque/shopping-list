@@ -24,7 +24,7 @@ Future<int?> pickZone(BuildContext context, WidgetRef ref, int storeId) {
                 const ListTile(title: Text('Which zone?')),
                 for (final z in list)
                   ListTile(
-                    leading: const Icon(Icons.place_outlined),
+                    leading: const Icon(Icons.shelves),
                     title: Text(z.name),
                     onTap: () => Navigator.pop(context, z.id),
                   ),

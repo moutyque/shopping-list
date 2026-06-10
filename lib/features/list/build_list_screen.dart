@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/repositories.dart';
+import '../onboarding/coach_marks.dart';
+import '../onboarding/onboarding_service.dart';
 import '../shopping/shopping_screen.dart';
 import '../zones/zones_screen.dart';
 import 'zone_picker.dart';
@@ -24,6 +26,41 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
   final _controller = TextEditingController();
   String _query = '';
   List<CatalogSuggestion> _suggestions = const [];
+
+  final _searchKey = GlobalKey();
+  final _zonesKey = GlobalKey();
+  final _shopKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      maybeShowCoachMarks(context,
+          store: ref.read(onboardingProvider),
+          seenKey: CoachKeys.build,
+          steps: [
+            CoachStep(
+              id: 'search',
+              key: _searchKey,
+              text: 'Type to add items. Each item remembers which aisle it '
+                  'lives in for this store.',
+            ),
+            CoachStep(
+              id: 'zones',
+              key: _zonesKey,
+              text: 'Set up your store\'s aisles (zones) and drag them into the '
+                  'order you walk.',
+              align: ContentAlign.bottom,
+            ),
+            CoachStep(
+              id: 'shop',
+              key: _shopKey,
+              text: 'When the list is ready, start shopping.',
+              align: ContentAlign.bottom,
+            ),
+          ]);
+    });
+  }
 
   @override
   void dispose() {
@@ -81,13 +118,15 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
         title: Text(widget.store.name),
         actions: [
           IconButton(
+            key: _zonesKey,
             tooltip: 'Manage zones',
-            icon: const Icon(Icons.dashboard_customize_outlined),
+            icon: const Icon(Icons.shelves),
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ZonesScreen(store: widget.store),
             )),
           ),
           TextButton.icon(
+            key: _shopKey,
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ShoppingScreen(listId: widget.listId, store: widget.store),
             )),
@@ -101,6 +140,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
+              key: _searchKey,
               controller: _controller,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
@@ -221,7 +261,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
               const SizedBox(height: 8),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.place_outlined),
+                leading: const Icon(Icons.shelves),
                 title: const Text('Zone'),
                 subtitle: Text(zoneName),
                 trailing: TextButton(

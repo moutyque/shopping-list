@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../list/build_list_screen.dart';
+import '../onboarding/coach_marks.dart';
+import '../onboarding/onboarding_service.dart';
 import '../shopping/shopping_screen.dart';
 
 class StoresScreen extends ConsumerStatefulWidget {
@@ -14,22 +16,51 @@ class StoresScreen extends ConsumerStatefulWidget {
 }
 
 class _StoresScreenState extends ConsumerState<StoresScreen> {
-  /// Auto-open the default store only once per app session, so navigating back
-  /// to this list (e.g. via the Back button) doesn't re-trigger it.
-  bool _autoOpened = false;
+  /// Run the first-frame logic once per app session, so navigating back to this
+  /// list (e.g. via the Back button) doesn't re-trigger it.
+  bool _firstFrameDone = false;
+  final _fabKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoOpen());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onFirstFrame());
   }
 
-  Future<void> _maybeAutoOpen() async {
-    if (_autoOpened) return;
-    _autoOpened = true;
+  /// On launch, open the default store if there is one; otherwise this is a new
+  /// (or store-less) user, so show the welcome coach-marks.
+  Future<void> _onFirstFrame() async {
+    if (_firstFrameDone) return;
+    _firstFrameDone = true;
     final store = await ref.read(storeRepositoryProvider).mostUsedStore();
-    if (store == null || !mounted) return;
-    await _openBuildList(store);
+    if (!mounted) return;
+    if (store != null) {
+      await _openBuildList(store);
+    } else {
+      await maybeShowCoachMarks(context,
+          store: ref.read(onboardingProvider),
+          seenKey: CoachKeys.stores,
+          steps: _storeSteps());
+    }
+  }
+
+  List<CoachStep> _storeSteps() => [
+        CoachStep(
+          id: 'add-store',
+          key: _fabKey,
+          text: 'Start here: add a store you shop at — '
+              'each store keeps its own aisles and learned order.',
+        ),
+      ];
+
+  Future<void> _replayTutorial() async {
+    final store = ref.read(onboardingProvider);
+    await store.resetAll();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Tips will show again as you use each screen.')));
+    await showCoachMarks(context,
+        store: store, seenKey: CoachKeys.stores, steps: _storeSteps());
   }
 
   /// Resumes the store's in-progress list, creating one only when there is none
@@ -72,8 +103,18 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   Widget build(BuildContext context) {
     final stores = ref.watch(storesProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('My stores')),
+      appBar: AppBar(
+        title: const Text('My stores'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'How it works',
+            onPressed: _replayTutorial,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
+        key: _fabKey,
         onPressed: _addStore,
         icon: const Icon(Icons.add),
         label: const Text('Store'),
