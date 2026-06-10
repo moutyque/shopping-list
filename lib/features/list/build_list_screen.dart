@@ -1,0 +1,273 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../app/providers.dart';
+import '../../data/db/app_database.dart';
+import '../../data/repositories/repositories.dart';
+import '../shopping/shopping_screen.dart';
+import '../zones/zones_screen.dart';
+import 'zone_picker.dart';
+
+/// Build a list for a store: type to add items via catalog autocomplete
+/// (reused items remember their zone), set optional qty/note, then start
+/// shopping.
+class BuildListScreen extends ConsumerStatefulWidget {
+  final int listId;
+  final Store store;
+  const BuildListScreen({super.key, required this.listId, required this.store});
+
+  @override
+  ConsumerState<BuildListScreen> createState() => _BuildListScreenState();
+}
+
+class _BuildListScreenState extends ConsumerState<BuildListScreen> {
+  final _controller = TextEditingController();
+  String _query = '';
+  List<CatalogSuggestion> _suggestions = const [];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshSuggestions(String q) async {
+    final results = await ref.read(catalogRepositoryProvider).suggest(widget.store.id, q);
+    if (mounted) setState(() => _suggestions = results);
+  }
+
+  Future<void> _addExisting(CatalogSuggestion s) async {
+    var zoneId = s.zoneId;
+    zoneId ??= await pickZone(context, ref, widget.store.id);
+    if (zoneId == null) return;
+    await ref.read(listRepositoryProvider).addEntry(
+          listId: widget.listId,
+          catalogItemId: s.item.id,
+          zoneId: zoneId,
+        );
+    _clear();
+  }
+
+  Future<void> _addNew() async {
+    final name = _query.trim();
+    if (name.isEmpty) return;
+    final zoneId = await pickZone(context, ref, widget.store.id);
+    if (zoneId == null) return;
+    final item = await ref.read(catalogRepositoryProvider).upsertItem(name);
+    await ref.read(listRepositoryProvider).addEntry(
+          listId: widget.listId,
+          catalogItemId: item.id,
+          zoneId: zoneId,
+        );
+    _clear();
+  }
+
+  void _clear() {
+    _controller.clear();
+    setState(() {
+      _query = '';
+      _suggestions = const [];
+    });
+  }
+
+  bool get _hasExactMatch =>
+      _suggestions.any((s) => s.item.name.toLowerCase() == _query.trim().toLowerCase());
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = ref.watch(entriesProvider(widget.listId));
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.store.name),
+        actions: [
+          IconButton(
+            tooltip: 'Manage zones',
+            icon: const Icon(Icons.dashboard_customize_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ZonesScreen(store: widget.store),
+            )),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ShoppingScreen(listId: widget.listId, store: widget.store),
+            )),
+            icon: const Icon(Icons.shopping_cart_checkout),
+            label: const Text('Shop'),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: _controller,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Add an item…',
+                border: const OutlineInputBorder(),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(icon: const Icon(Icons.clear), onPressed: _clear),
+              ),
+              onChanged: (v) {
+                setState(() => _query = v);
+                _refreshSuggestions(v);
+              },
+            ),
+          ),
+          if (_query.isNotEmpty) _suggestionList(),
+          const Divider(height: 1),
+          Expanded(
+            child: entries.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (list) => _entryList(list),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _suggestionList() {
+    return Flexible(
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          for (final s in _suggestions)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.add_circle_outline),
+              title: Text(s.item.name),
+              subtitle: s.zoneId == null
+                  ? const Text('pick a zone')
+                  : Text('used ${s.usageCount}×'),
+              onTap: () => _addExisting(s),
+            ),
+          if (!_hasExactMatch)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.add),
+              title: Text('Add "${_query.trim()}" as new item'),
+              onTap: _addNew,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _entryList(List<EntryView> list) {
+    if (list.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('Start typing above to add items to your list.',
+              textAlign: TextAlign.center),
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: list.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final e = list[i];
+        return ListTile(
+          title: Text(e.qty != null ? '${e.itemName}  ×${e.qty}' : e.itemName),
+          subtitle: Text([e.zoneName, if (e.note != null) e.note].join(' · ')),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.tune),
+                tooltip: 'Quantity / note',
+                onPressed: () => _editDetail(e),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => ref.read(listRepositoryProvider).removeEntry(e.entryId),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _editDetail(EntryView e) async {
+    final qtyController = TextEditingController(text: e.qty?.toString() ?? '');
+    final noteController = TextEditingController(text: e.note ?? '');
+    var zoneId = e.zoneId;
+    var zoneName = e.zoneName;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: Text(e.itemName),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: qtyController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Quantity (optional)'),
+              ),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: 'Note (optional)'),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.place_outlined),
+                title: const Text('Zone'),
+                subtitle: Text(zoneName),
+                trailing: TextButton(
+                  child: const Text('Change'),
+                  onPressed: () async {
+                    final picked = await pickZone(context, ref, widget.store.id);
+                    if (picked == null) return;
+                    final zones = await ref
+                        .read(zoneRepositoryProvider)
+                        .watchZones(widget.store.id)
+                        .first;
+                    final z = zones.firstWhere((z) => z.id == picked);
+                    setLocal(() {
+                      zoneId = picked;
+                      zoneName = z.name;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) return;
+    final qty = int.tryParse(qtyController.text.trim());
+    final note = noteController.text.trim();
+    await ref.read(listRepositoryProvider).updateEntry(
+          entryId: e.entryId,
+          qty: qty,
+          note: note.isEmpty ? null : note,
+        );
+    if (zoneId != e.zoneId) {
+      await ref.read(catalogRepositoryProvider).setItemZone(
+            storeId: widget.store.id,
+            catalogItemId: e.catalogItemId,
+            zoneId: zoneId,
+          );
+    }
+  }
+}
