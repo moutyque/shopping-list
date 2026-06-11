@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/repositories.dart';
 import '../../l10n/l10n.dart';
+import '../onboarding/demo_conductor.dart';
 import '../shopping/shopping_screen.dart';
 import '../zones/zones_screen.dart';
 import 'zone_picker.dart';
@@ -26,10 +27,40 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
   String _query = '';
   List<CatalogSuggestion> _suggestions = const [];
 
+  /// Set while a guided demo is running: the demo types into its own
+  /// controller, so we bind to it and refresh suggestions on its changes.
+  DemoConductor? _demo;
+  TextEditingController get _search => _demo?.searchController ?? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final demo = ref.read(activeDemoProvider);
+    if (demo != null) {
+      _demo = demo;
+      demo.searchController.addListener(_onDemoSearch);
+      // The demo may have pre-filled the field before this screen mounted, so
+      // the listener missed it — seed the query so the suggestion tile shows.
+      _query = demo.searchController.text;
+      if (_query.isNotEmpty) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _refreshSuggestions(_query));
+      }
+    }
+  }
+
+  void _onDemoSearch() => _onQueryChanged(_demo!.searchController.text);
+
   @override
   void dispose() {
+    _demo?.searchController.removeListener(_onDemoSearch);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged(String v) {
+    setState(() => _query = v);
+    _refreshSuggestions(v);
   }
 
   Future<void> _refreshSuggestions(String q) async {
@@ -64,7 +95,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
   }
 
   void _clear() {
-    _controller.clear();
+    _search.clear();
     setState(() {
       _query = '';
       _suggestions = const [];
@@ -102,7 +133,8 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
-              controller: _controller,
+              key: _demo?.searchFieldKey,
+              controller: _search,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
@@ -112,10 +144,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
                     ? null
                     : IconButton(icon: const Icon(Icons.clear), onPressed: _clear),
               ),
-              onChanged: (v) {
-                setState(() => _query = v);
-                _refreshSuggestions(v);
-              },
+              onChanged: _onQueryChanged,
             ),
           ),
           if (_query.isNotEmpty) _suggestionList(),
@@ -137,8 +166,10 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
       child: ListView(
         shrinkWrap: true,
         children: [
-          for (final s in _suggestions)
+          for (final (i, s) in _suggestions.indexed)
             ListTile(
+              // The demo highlights the first suggestion, whatever it is.
+              key: i == 0 ? _demo?.addTileKey : null,
               dense: true,
               leading: const Icon(Icons.add_circle_outline),
               title: Text(s.item.name),
@@ -149,6 +180,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
             ),
           if (!_hasExactMatch)
             ListTile(
+              key: _suggestions.isEmpty ? _demo?.addTileKey : null,
               dense: true,
               leading: const Icon(Icons.add),
               title: Text(context.l10n.addAsNewItem(_query.trim())),

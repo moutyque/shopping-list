@@ -6,6 +6,7 @@ import '../data/db/app_database.dart';
 import '../data/db/connection.dart';
 import '../data/repositories/drift_repositories.dart';
 import '../data/repositories/repositories.dart';
+import '../features/onboarding/demo_conductor.dart';
 import '../features/onboarding/onboarding_service.dart';
 
 /*
@@ -13,6 +14,20 @@ import '../features/onboarding/onboarding_service.dart';
  * in-memory instance; everything below depends only on the repository
  * interfaces, so the Phase-2 remote backend can be injected here unchanged.
  */
+
+/// Non-null while a guided demo tour is running. The screens watch this to wire
+/// their widgets to the tour's [DemoConductor] (highlight keys, demo inputs);
+/// when null they behave normally.
+class ActiveDemoController extends Notifier<DemoConductor?> {
+  @override
+  DemoConductor? build() => null;
+
+  void set(DemoConductor? conductor) => state = conductor;
+}
+
+final activeDemoProvider =
+    NotifierProvider<ActiveDemoController, DemoConductor?>(
+        ActiveDemoController.new);
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = openAppDatabase();

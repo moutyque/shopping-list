@@ -57,6 +57,9 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
   Widget build(BuildContext context) {
     final entries = _applyManualOrder(ref.watch(orderedEntriesProvider(widget.listId)));
     final done = entries.where((e) => e.checked).length;
+    // The order reflects learning only once at least one item has trip history.
+    final learned = entries.any((e) => e.observations.isNotEmpty);
+    final demo = ref.watch(activeDemoProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -86,24 +89,36 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
         ),
       ),
       bottomNavigationBar: _BottomBar(
+        completeKey: demo?.completeKey,
         done: done,
         total: entries.length,
         onComplete: entries.isEmpty ? null : _complete,
       ),
       body: entries.isEmpty
           ? Center(child: Text(context.l10n.noItemsOnList))
-          : _view == ShopView.grouped
-              ? _GroupedList(entries: entries, onToggle: _toggle)
-              : _WalkList(
-                  entries: entries,
-                  onToggle: _toggle,
-                  onReorderItem: (oldIndex, newIndex) {
-                    final ids = entries.map((e) => e.entryId).toList();
-                    final moved = ids.removeAt(oldIndex);
-                    ids.insert(newIndex, moved);
-                    setState(() => _manualOrder = ids);
-                  },
+          : Column(
+              children: [
+                if (learned) _LearnedBanner(key: demo?.bannerKey),
+                Expanded(
+                  child: _view == ShopView.grouped
+                      ? _GroupedList(
+                          entries: entries,
+                          onToggle: _toggle,
+                          highlightKeyFor: (id) => demo?.checkboxKey(id),
+                        )
+                      : _WalkList(
+                          entries: entries,
+                          onToggle: _toggle,
+                          onReorderItem: (oldIndex, newIndex) {
+                            final ids = entries.map((e) => e.entryId).toList();
+                            final moved = ids.removeAt(oldIndex);
+                            ids.insert(newIndex, moved);
+                            setState(() => _manualOrder = ids);
+                          },
+                        ),
                 ),
+              ],
+            ),
     );
   }
 
@@ -111,10 +126,43 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
       ref.read(listRepositoryProvider).setChecked(e.entryId, !e.checked);
 }
 
+/// Announces that the list's order came from the learning core (the store has
+/// past-trip history), so the user understands the list sorted itself.
+class _LearnedBanner extends StatelessWidget {
+  const _LearnedBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      color: scheme.secondaryContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 18, color: scheme.onSecondaryContainer),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.l10n.sortedFromLearning,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: scheme.onSecondaryContainer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GroupedList extends StatelessWidget {
   final List<EntryView> entries;
   final void Function(EntryView) onToggle;
-  const _GroupedList({required this.entries, required this.onToggle});
+  final Key? Function(int entryId)? highlightKeyFor;
+  const _GroupedList(
+      {required this.entries, required this.onToggle, this.highlightKeyFor});
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +173,11 @@ class _GroupedList extends StatelessWidget {
         currentZone = e.zoneId;
         children.add(_ZoneHeader(label: e.zoneName, icon: e.zoneIcon));
       }
-      children.add(_ItemTile(entry: e, onToggle: onToggle));
+      children.add(_ItemTile(
+        entry: e,
+        onToggle: onToggle,
+        highlightKey: highlightKeyFor?.call(e.entryId),
+      ));
     }
     return ListView(children: children);
   }
@@ -187,12 +239,16 @@ class _ItemTile extends StatelessWidget {
   final Widget? trailing;
   final void Function(EntryView) onToggle;
 
+  /// When the demo highlights this row, the key it reads the rect from.
+  final Key? highlightKey;
+
   const _ItemTile({
     super.key,
     required this.entry,
     required this.onToggle,
     this.leadingNumber,
     this.trailing,
+    this.highlightKey,
   });
 
   @override
@@ -202,6 +258,7 @@ class _ItemTile extends StatelessWidget {
       if (entry.note != null) entry.note!,
     ];
     return CheckboxListTile(
+      key: highlightKey,
       controlAffinity: ListTileControlAffinity.leading,
       value: entry.checked,
       onChanged: (_) => onToggle(entry),
@@ -234,7 +291,9 @@ class _BottomBar extends StatelessWidget {
   final int done;
   final int total;
   final VoidCallback? onComplete;
-  const _BottomBar({required this.done, required this.total, this.onComplete});
+  final Key? completeKey;
+  const _BottomBar(
+      {required this.done, required this.total, this.onComplete, this.completeKey});
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +304,7 @@ class _BottomBar extends StatelessWidget {
           children: [
             Expanded(child: Text(context.l10n.pickedCount(done, total))),
             FilledButton.icon(
+              key: completeKey,
               onPressed: onComplete,
               icon: const Icon(Icons.check),
               label: Text(context.l10n.completeRun),

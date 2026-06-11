@@ -167,4 +167,28 @@ void main() {
 
     expect(find.text('1 of 2 picked'), findsOneWidget);
   });
+
+  testWidgets('no learned banner on a cold-start list (no history)',
+      (tester) async {
+    await pumpScreen(tester);
+
+    expect(find.text('Sorted from your last trips'), findsNothing);
+  });
+
+  testWidgets('learned banner shows once any item has trip history',
+      (tester) async {
+    repo = FakeListRepository([
+      _entry(
+          id: 10,
+          name: 'Milk',
+          zoneId: 2,
+          zoneName: 'Dairy',
+          zoneSeed: 1,
+          observations: [0.8]),
+      _entry(id: 11, name: 'Bananas', zoneId: 1, zoneName: 'Produce', zoneSeed: 0),
+    ]);
+    await pumpScreen(tester);
+
+    expect(find.text('Sorted from your last trips'), findsOneWidget);
+  });
 }

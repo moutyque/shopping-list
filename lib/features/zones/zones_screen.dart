@@ -16,9 +16,11 @@ class ZonesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final zones = ref.watch(zonesProvider(store.id));
+    final demo = ref.watch(activeDemoProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.zonesTitle(store.name))),
       floatingActionButton: FloatingActionButton.extended(
+        key: demo?.newZoneFabKey,
         onPressed: () async {
           final name = await promptName(context, title: context.l10n.newZoneTitle);
           if (name == null || name.isEmpty) return;
