@@ -7,26 +7,20 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('a key is unseen until marked, then seen', () async {
+  test('the demo flag is unseen until marked, then seen', () async {
     final store = PrefsOnboardingStore();
-    expect(await store.hasSeen(CoachKeys.stores), isFalse);
+    expect(await store.hasSeen(DemoFlag.seen), isFalse);
 
-    await store.markSeen(CoachKeys.stores);
-    expect(await store.hasSeen(CoachKeys.stores), isTrue);
-    // Other tours are independent.
-    expect(await store.hasSeen(CoachKeys.shop), isFalse);
+    await store.markSeen(DemoFlag.seen);
+    expect(await store.hasSeen(DemoFlag.seen), isTrue);
   });
 
-  test('resetAll clears every tour so they replay', () async {
+  test('resetAll clears the flag so the demo replays', () async {
     final store = PrefsOnboardingStore();
-    for (final key in CoachKeys.all) {
-      await store.markSeen(key);
-    }
+    await store.markSeen(DemoFlag.seen);
 
     await store.resetAll();
 
-    for (final key in CoachKeys.all) {
-      expect(await store.hasSeen(key), isFalse, reason: key);
-    }
+    expect(await store.hasSeen(DemoFlag.seen), isFalse);
   });
 }

@@ -4,67 +4,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../../l10n/l10n.dart';
-import '../onboarding/coach_marks.dart';
-import '../onboarding/onboarding_service.dart';
 import '../stores/stores_screen.dart' show promptName;
 
 /// Manage a store's zones: add, rename, and set the baseline (seed) order by
 /// dragging. The learned order refines this over time but the seed order is the
 /// cold-start fallback.
-class ZonesScreen extends ConsumerStatefulWidget {
+class ZonesScreen extends ConsumerWidget {
   final Store store;
   const ZonesScreen({super.key, required this.store});
 
   @override
-  ConsumerState<ZonesScreen> createState() => _ZonesScreenState();
-}
-
-class _ZonesScreenState extends ConsumerState<ZonesScreen> {
-  final _fabKey = GlobalKey();
-  final _dragKey = GlobalKey();
-  final _editKey = GlobalKey();
-
-  /// Coach-marks fire once the list has at least one zone (so the drag/rename
-  /// targets exist). With zero zones the empty-state text already explains it.
-  bool _coachScheduled = false;
-
-  void _scheduleCoach() {
-    if (_coachScheduled) return;
-    _coachScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      maybeShowCoachMarks(context,
-          store: ref.read(onboardingProvider),
-          seenKey: CoachKeys.zones,
-          steps: [
-            CoachStep(id: 'reorder', key: _dragKey, text: context.l10n.coachReorder),
-            CoachStep(
-                id: 'rename-zone', key: _editKey, text: context.l10n.coachRenameZone),
-            CoachStep(
-                id: 'add-zone',
-                key: _fabKey,
-                align: ContentAlign.top,
-                text: context.l10n.coachAddZone),
-          ]);
-    });
-  }
-
-  Future<void> _addZone() async {
-    final name = await promptName(context, title: context.l10n.newZoneTitle);
-    if (name == null || name.isEmpty) return;
-    await ref
-        .read(zoneRepositoryProvider)
-        .createZone(storeId: widget.store.id, name: name);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final zones = ref.watch(zonesProvider(widget.store.id));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final zones = ref.watch(zonesProvider(store.id));
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.zonesTitle(widget.store.name))),
+      appBar: AppBar(title: Text(context.l10n.zonesTitle(store.name))),
       floatingActionButton: FloatingActionButton.extended(
-        key: _fabKey,
-        onPressed: _addZone,
+        onPressed: () async {
+          final name = await promptName(context, title: context.l10n.newZoneTitle);
+          if (name == null || name.isEmpty) return;
+          await ref
+              .read(zoneRepositoryProvider)
+              .createZone(storeId: store.id, name: name);
+        },
         icon: const Icon(Icons.add),
         label: Text(context.l10n.zoneFab),
       ),
@@ -80,7 +41,6 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
               ),
             );
           }
-          _scheduleCoach();
           return ReorderableListView.builder(
             itemCount: list.length,
             onReorderItem: (oldIndex, newIndex) {
@@ -99,7 +59,6 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      key: i == 0 ? _editKey : null,
                       icon: const Icon(Icons.edit_outlined),
                       onPressed: () async {
                         final name = await promptName(context,
@@ -110,7 +69,7 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
                             .renameZone(zone.id, name);
                       },
                     ),
-                    Icon(Icons.drag_handle, key: i == 0 ? _dragKey : null),
+                    const Icon(Icons.drag_handle),
                   ],
                 ),
               );

@@ -6,7 +6,7 @@ class FakeOnboardingStore implements OnboardingStore {
   final Set<String> _seen;
 
   FakeOnboardingStore({bool seenAll = true})
-      : _seen = seenAll ? CoachKeys.all.toSet() : <String>{};
+      : _seen = seenAll ? DemoFlag.all.toSet() : <String>{};
 
   @override
   Future<bool> hasSeen(String key) async => _seen.contains(key);

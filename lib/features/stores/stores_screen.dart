@@ -6,8 +6,7 @@ import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../../l10n/l10n.dart';
 import '../list/build_list_screen.dart';
-import '../onboarding/coach_marks.dart';
-import '../onboarding/demo_data.dart';
+import '../onboarding/demo_runner.dart';
 import '../onboarding/onboarding_service.dart';
 import '../shopping/shopping_screen.dart';
 
@@ -22,8 +21,6 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   /// Run the first-frame logic once per app session, so navigating back to this
   /// list (e.g. via the Back button) doesn't re-trigger it.
   bool _firstFrameDone = false;
-  final _fabKey = GlobalKey();
-  final _deleteKey = GlobalKey();
 
   @override
   void initState() {
@@ -31,8 +28,8 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _onFirstFrame());
   }
 
-  /// On launch, open the default store if there is one; otherwise this is a new
-  /// (or store-less) user, so show the welcome coach-marks.
+  /// On launch: open the default store if there is one; otherwise this is a new
+  /// (store-less) user, so play the autonomous demo once.
   Future<void> _onFirstFrame() async {
     if (_firstFrameDone) return;
     _firstFrameDone = true;
@@ -40,32 +37,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     if (!mounted) return;
     if (store != null) {
       await _openBuildList(store);
-    } else {
-      await maybeShowCoachMarks(context,
-          store: ref.read(onboardingProvider),
-          seenKey: CoachKeys.stores,
-          steps: _storeSteps());
+      return;
     }
-  }
-
-  List<CoachStep> _storeSteps() => [
-        CoachStep(
-          id: 'add-store',
-          key: _fabKey,
-          // The FAB is at the bottom edge, so the text must sit above it.
-          align: ContentAlign.top,
-          text: context.l10n.coachAddStore,
-        ),
-      ];
-
-  Future<void> _replayTutorial() async {
-    final store = ref.read(onboardingProvider);
-    await store.resetAll();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.tipsWillReplay)));
-    await showCoachMarks(context,
-        store: store, seenKey: CoachKeys.stores, steps: _storeSteps());
+    final onboarding = ref.read(onboardingProvider);
+    if (await onboarding.hasSeen(DemoFlag.seen)) return;
+    await onboarding.markSeen(DemoFlag.seen);
+    if (mounted) await runDemo(context, ref);
   }
 
   Future<void> _pickLanguage() async {
@@ -111,25 +88,6 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     return await repo.activeList(store.id) ?? await repo.createList(store.id);
   }
 
-  /// The "closing move" of the tour: shown the first time the user lands back
-  /// on a non-empty store list (after building/shopping), pointing at delete.
-  List<CoachStep> _deleteSteps() => [
-        CoachStep(
-          id: 'delete-store',
-          key: _deleteKey,
-          text: context.l10n.coachDeleteStore,
-        ),
-      ];
-
-  void _maybeShowDeleteCoach() {
-    final stores = ref.read(storesProvider).asData?.value ?? const [];
-    if (stores.isEmpty || !mounted) return;
-    maybeShowCoachMarks(context,
-        store: ref.read(onboardingProvider),
-        seenKey: CoachKeys.delete,
-        steps: _deleteSteps());
-  }
-
   Future<void> _addStore() async {
     final name = await _promptName(context, title: context.l10n.newStoreTitle);
     if (name == null || name.isEmpty) return;
@@ -164,44 +122,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     await ref.read(storeRepositoryProvider).deleteStore(store.id);
   }
 
-  /// Seeds and opens a fully-populated sample store so a new user sees a real
-  /// list straight away.
-  Future<void> _loadDemo() async {
-    final l = context.l10n;
-    final strings = DemoStrings(
-      storeName: l.demoStoreName,
-      zones: [l.demoZoneProduce, l.demoZoneBakery, l.demoZoneDairy, l.demoZoneFrozen],
-      items: [
-        (l.demoItemBananas, l.demoZoneProduce),
-        (l.demoItemApples, l.demoZoneProduce),
-        (l.demoItemBread, l.demoZoneBakery),
-        (l.demoItemCroissants, l.demoZoneBakery),
-        (l.demoItemMilk, l.demoZoneDairy),
-        (l.demoItemEggs, l.demoZoneDairy),
-        (l.demoItemPizza, l.demoZoneFrozen),
-      ],
-    );
-    final seed = await seedDemoStore(
-      strings: strings,
-      stores: ref.read(storeRepositoryProvider),
-      zones: ref.read(zoneRepositoryProvider),
-      catalog: ref.read(catalogRepositoryProvider),
-      lists: ref.read(listRepositoryProvider),
-    );
-    if (!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => BuildListScreen(listId: seed.list.id, store: seed.store),
-    ));
-    _maybeShowDeleteCoach();
-  }
-
   Future<void> _openBuildList(Store store) async {
     final list = await _resumeOrCreate(store);
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => BuildListScreen(listId: list.id, store: store),
     ));
-    _maybeShowDeleteCoach();
   }
 
   Future<void> _openShopping(Store store) async {
@@ -210,7 +136,6 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ShoppingScreen(listId: list.id, store: store),
     ));
-    _maybeShowDeleteCoach();
   }
 
   @override
@@ -229,12 +154,11 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
           IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: l.howItWorks,
-            onPressed: _replayTutorial,
+            onPressed: () => runDemo(context, ref),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        key: _fabKey,
         onPressed: _addStore,
         icon: const Icon(Icons.add),
         label: Text(l.storeFab),
@@ -249,7 +173,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
               title: l.noStoresTitle,
               message: l.noStoresMessage,
               actionLabel: l.loadDemoStore,
-              onAction: _loadDemo,
+              onAction: () => runDemo(context, ref),
             );
           }
           return ListView.separated(
@@ -276,8 +200,6 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       onPressed: () => _renameStore(store),
                     ),
                     IconButton(
-                      // Key only on the first row, for the delete coach-mark.
-                      key: i == 0 ? _deleteKey : null,
                       icon: const Icon(Icons.delete_outline),
                       tooltip: l.deleteStoreTooltip,
                       onPressed: () => _deleteStore(store),

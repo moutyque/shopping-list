@@ -5,8 +5,6 @@ import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/repositories.dart';
 import '../../l10n/l10n.dart';
-import '../onboarding/coach_marks.dart';
-import '../onboarding/onboarding_service.dart';
 
 enum ShopView { grouped, walk }
 
@@ -29,29 +27,6 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
   /// Local drag override for walk-order view (does not change learned data;
   /// the check-off sequence is the learning signal).
   List<int>? _manualOrder;
-
-  final _itemKey = GlobalKey();
-  final _toggleKey = GlobalKey();
-  final _completeKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      maybeShowCoachMarks(context,
-          store: ref.read(onboardingProvider),
-          seenKey: CoachKeys.shop,
-          steps: [
-            CoachStep(id: 'check', key: _itemKey, text: context.l10n.coachCheck),
-            CoachStep(id: 'view', key: _toggleKey, text: context.l10n.coachView),
-            CoachStep(
-                id: 'complete',
-                key: _completeKey,
-                text: context.l10n.coachComplete,
-                align: ContentAlign.top),
-          ]);
-    });
-  }
 
   List<EntryView> _applyManualOrder(List<EntryView> ordered) {
     final manual = _manualOrder;
@@ -91,7 +66,6 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: SegmentedButton<ShopView>(
-              key: _toggleKey,
               segments: [
                 ButtonSegment(
                     value: ShopView.grouped,
@@ -114,18 +88,15 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
       bottomNavigationBar: _BottomBar(
         done: done,
         total: entries.length,
-        completeKey: _completeKey,
         onComplete: entries.isEmpty ? null : _complete,
       ),
       body: entries.isEmpty
           ? Center(child: Text(context.l10n.noItemsOnList))
           : _view == ShopView.grouped
-              ? _GroupedList(
-                  entries: entries, onToggle: _toggle, firstItemKey: _itemKey)
+              ? _GroupedList(entries: entries, onToggle: _toggle)
               : _WalkList(
                   entries: entries,
                   onToggle: _toggle,
-                  firstItemKey: _itemKey,
                   onReorderItem: (oldIndex, newIndex) {
                     final ids = entries.map((e) => e.entryId).toList();
                     final moved = ids.removeAt(oldIndex);
@@ -143,26 +114,18 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
 class _GroupedList extends StatelessWidget {
   final List<EntryView> entries;
   final void Function(EntryView) onToggle;
-  final Key? firstItemKey;
-  const _GroupedList(
-      {required this.entries, required this.onToggle, this.firstItemKey});
+  const _GroupedList({required this.entries, required this.onToggle});
 
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[];
     int? currentZone;
-    var first = true;
     for (final e in entries) {
       if (e.zoneId != currentZone) {
         currentZone = e.zoneId;
         children.add(_ZoneHeader(label: e.zoneName, icon: e.zoneIcon));
       }
-      children.add(_ItemTile(
-        entry: e,
-        onToggle: onToggle,
-        spotlightKey: first ? firstItemKey : null,
-      ));
-      first = false;
+      children.add(_ItemTile(entry: e, onToggle: onToggle));
     }
     return ListView(children: children);
   }
@@ -172,12 +135,10 @@ class _WalkList extends StatelessWidget {
   final List<EntryView> entries;
   final void Function(EntryView) onToggle;
   final void Function(int, int) onReorderItem;
-  final Key? firstItemKey;
   const _WalkList(
       {required this.entries,
       required this.onToggle,
-      required this.onReorderItem,
-      this.firstItemKey});
+      required this.onReorderItem});
 
   @override
   Widget build(BuildContext context) {
@@ -188,7 +149,6 @@ class _WalkList extends StatelessWidget {
         final e = entries[i];
         return _ItemTile(
           key: ValueKey(e.entryId),
-          spotlightKey: i == 0 ? firstItemKey : null,
           entry: e,
           leadingNumber: i + 1,
           onToggle: onToggle,
@@ -227,16 +187,12 @@ class _ItemTile extends StatelessWidget {
   final Widget? trailing;
   final void Function(EntryView) onToggle;
 
-  /// When set, marks this tile as the coach-mark spotlight target.
-  final Key? spotlightKey;
-
   const _ItemTile({
     super.key,
     required this.entry,
     required this.onToggle,
     this.leadingNumber,
     this.trailing,
-    this.spotlightKey,
   });
 
   @override
@@ -246,7 +202,6 @@ class _ItemTile extends StatelessWidget {
       if (entry.note != null) entry.note!,
     ];
     return CheckboxListTile(
-      key: spotlightKey,
       controlAffinity: ListTileControlAffinity.leading,
       value: entry.checked,
       onChanged: (_) => onToggle(entry),
@@ -279,12 +234,7 @@ class _BottomBar extends StatelessWidget {
   final int done;
   final int total;
   final VoidCallback? onComplete;
-  final Key? completeKey;
-  const _BottomBar(
-      {required this.done,
-      required this.total,
-      this.onComplete,
-      this.completeKey});
+  const _BottomBar({required this.done, required this.total, this.onComplete});
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +245,6 @@ class _BottomBar extends StatelessWidget {
           children: [
             Expanded(child: Text(context.l10n.pickedCount(done, total))),
             FilledButton.icon(
-              key: completeKey,
               onPressed: onComplete,
               icon: const Icon(Icons.check),
               label: Text(context.l10n.completeRun),

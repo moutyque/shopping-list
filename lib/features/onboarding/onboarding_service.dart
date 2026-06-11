@@ -1,30 +1,26 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Identifiers for the per-screen coach-mark sequences. Each screen shows its
-/// tips once, the first time it is visited.
-class CoachKeys {
-  static const stores = 'stores';
-  static const build = 'build';
-  static const zones = 'zones';
-  static const shop = 'shop';
-  static const delete = 'delete';
+/// Persisted flag keys for onboarding.
+class DemoFlag {
+  /// Whether the autonomous demo has already played on first launch.
+  static const seen = 'demo_seen';
 
-  static const all = [stores, build, zones, shop, delete];
+  static const all = [seen];
 }
 
-/// Tracks which coach-mark sequences the user has already seen. Abstracted so
-/// tests can substitute an in-memory implementation instead of touching disk.
+/// Tracks which onboarding has already been shown. Abstracted so tests can
+/// substitute an in-memory implementation instead of touching disk.
 abstract class OnboardingStore {
   Future<bool> hasSeen(String key);
   Future<void> markSeen(String key);
 
-  /// Clears every seen flag so the tips play again (used by "replay").
+  /// Clears every flag so the demo plays again (used by "replay").
   Future<void> resetAll();
 }
 
 /// [OnboardingStore] backed by shared_preferences.
 class PrefsOnboardingStore implements OnboardingStore {
-  static String _k(String key) => 'coach.$key';
+  static String _k(String key) => 'onboarding.$key';
 
   @override
   Future<bool> hasSeen(String key) async =>
@@ -37,7 +33,7 @@ class PrefsOnboardingStore implements OnboardingStore {
   @override
   Future<void> resetAll() async {
     final prefs = await SharedPreferences.getInstance();
-    for (final key in CoachKeys.all) {
+    for (final key in DemoFlag.all) {
       await prefs.remove(_k(key));
     }
   }
