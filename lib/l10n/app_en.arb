@@ -5,6 +5,9 @@
   "save": "Save",
   "delete": "Delete",
   "nameHint": "Name",
+  "coachSkip": "Skip",
+  "coachNext": "Next",
+  "coachGotIt": "Got it",
 
   "language": "Language",
   "languageSystem": "System default",

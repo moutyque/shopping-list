@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
+import '../../l10n/l10n.dart';
 import 'onboarding_service.dart';
 
 // Re-export the enums callers need so screens depend only on this file.
@@ -66,6 +67,12 @@ Future<void> _show(
       for (var i = 0; i < visible.length; i++)
         _target(visible[i], isLast: i == visible.length - 1),
     ],
+    // Our cards carry their own (localized) Skip button; hide the package's
+    // built-in English one. No pulse, so the highlight sits steadily on the
+    // element's real bounds instead of shrinking.
+    hideSkip: true,
+    pulseEnable: false,
+    paddingFocus: 8,
     onFinish: () => store.markSeen(seenKey),
     onSkip: () {
       store.markSeen(seenKey);
@@ -121,11 +128,12 @@ class _CoachCard extends StatelessWidget {
             children: [
               if (!isLast)
                 TextButton(
-                    onPressed: controller.skip, child: const Text('Skip')),
+                    onPressed: controller.skip,
+                    child: Text(context.l10n.coachSkip)),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: controller.next,
-                child: Text(isLast ? 'Got it' : 'Next'),
+                child: Text(isLast ? context.l10n.coachGotIt : context.l10n.coachNext),
               ),
             ],
           ),
