@@ -11,15 +11,36 @@ abstract class DemoNavigator {
   void backToStores();
 }
 
-/// Narration shown in the caption bar as each stage runs.
-class DemoCaptions {
-  final String creating;
-  final String adding;
-  final String reordering;
-  final String shopping;
-  final String done;
+/// Which part of the screen the spotlight should clear (un-dim) for a step.
+/// Logical, not geometric — the overlay maps these to actual rects so the
+/// controller stays free of layout concerns and unit-testable.
+enum DemoFocus {
+  /// No cutout — dim the whole screen (used for setup/celebration beats).
+  none,
 
-  const DemoCaptions({
+  /// Clear the main content area (the list, the aisles, the checklist).
+  body,
+}
+
+/// One narrated beat of the demo: a short title, an explanatory line, and the
+/// region to spotlight while it plays.
+class DemoStep {
+  final String title;
+  final String body;
+  final DemoFocus focus;
+  const DemoStep(this.title, this.body, this.focus);
+}
+
+/// Title + body text for each stage, supplied localized by the caller. The
+/// controller pairs each with the right [DemoFocus].
+class DemoNarration {
+  final (String, String) creating;
+  final (String, String) adding;
+  final (String, String) reordering;
+  final (String, String) shopping;
+  final (String, String) done;
+
+  const DemoNarration({
     required this.creating,
     required this.adding,
     required this.reordering,
@@ -39,8 +60,8 @@ class DemoController {
   final ListRepository lists;
   final DemoNavigator nav;
   final DemoStrings strings;
-  final DemoCaptions captions;
-  final void Function(String) onCaption;
+  final DemoNarration narration;
+  final void Function(DemoStep) onStep;
 
   /// Delay between micro-steps. Production uses ~0.7s; tests pass [Duration.zero].
   final Duration pace;
@@ -54,18 +75,21 @@ class DemoController {
     required this.lists,
     required this.nav,
     required this.strings,
-    required this.captions,
-    required this.onCaption,
+    required this.narration,
+    required this.onStep,
     this.pace = const Duration(milliseconds: 700),
   });
 
   /// Requests the demo stop at the next checkpoint (Skip button).
   void abort() => _aborted = true;
 
+  void _say((String, String) text, DemoFocus focus) =>
+      onStep(DemoStep(text.$1, text.$2, focus));
+
   Future<void> run() async {
     Store? store;
     try {
-      onCaption(captions.creating);
+      _say(narration.creating, DemoFocus.none);
       store = await stores.createStore(strings.storeName);
       final zoneByName = <String, Zone>{};
       for (final name in strings.zones) {
@@ -77,7 +101,7 @@ class DemoController {
       nav.openBuildList(store, list);
       await _beat();
 
-      onCaption(captions.adding);
+      _say(narration.adding, DemoFocus.body);
       for (final (itemName, zoneName) in strings.items) {
         if (_aborted) return;
         final item = await catalog.upsertItem(itemName);
@@ -90,7 +114,7 @@ class DemoController {
       }
 
       if (_aborted) return;
-      onCaption(captions.reordering);
+      _say(narration.reordering, DemoFocus.body);
       nav.openZones(store);
       await _beat();
       // Reverse the walk order so the aisles visibly move.
@@ -100,7 +124,7 @@ class DemoController {
       await _beat();
 
       if (_aborted) return;
-      onCaption(captions.shopping);
+      _say(narration.shopping, DemoFocus.body);
       nav.openShopping(store, list);
       await _beat();
       final entries = await lists.watchEntries(list.id).first;
@@ -112,7 +136,7 @@ class DemoController {
 
       if (_aborted) return;
       await lists.completeRun(list.id);
-      onCaption(captions.done);
+      _say(narration.done, DemoFocus.none);
       await _beat();
       await _beat();
     } finally {

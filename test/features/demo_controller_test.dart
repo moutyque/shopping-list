@@ -27,19 +27,19 @@ const _strings = DemoStrings(
   ],
 );
 
-const _captions = DemoCaptions(
-  creating: 'c',
-  adding: 'a',
-  reordering: 'r',
-  shopping: 's',
-  done: 'd',
+const _narration = DemoNarration(
+  creating: ('c', 'cb'),
+  adding: ('a', 'ab'),
+  reordering: ('r', 'rb'),
+  shopping: ('s', 'sb'),
+  done: ('d', 'db'),
 );
 
 void main() {
   late AppDatabase db;
   late DriftStoreRepository stores;
 
-  DemoController build(_RecordingNav nav, List<String> captions) {
+  DemoController build(_RecordingNav nav, List<DemoStep> steps) {
     final zones = DriftZoneRepository(db);
     final catalog = DriftCatalogRepository(db);
     final lists = DriftListRepository(db);
@@ -50,8 +50,8 @@ void main() {
       lists: lists,
       nav: nav,
       strings: _strings,
-      captions: _captions,
-      onCaption: captions.add,
+      narration: _narration,
+      onStep: steps.add,
       pace: Duration.zero,
     );
   }
@@ -64,21 +64,30 @@ void main() {
 
   test('runs the full flow then cleans up the demo store', () async {
     final nav = _RecordingNav();
-    final captions = <String>[];
+    final steps = <DemoStep>[];
 
-    await build(nav, captions).run();
+    await build(nav, steps).run();
 
     // Visited each screen in order and returned home.
     expect(nav.calls, ['build', 'zones', 'shop', 'back']);
-    // Narrated every stage.
-    expect(captions, ['c', 'a', 'r', 's', 'd']);
+    // Narrated every stage with title + body.
+    expect(steps.map((s) => s.title), ['c', 'a', 'r', 's', 'd']);
+    expect(steps.map((s) => s.body), ['cb', 'ab', 'rb', 'sb', 'db']);
+    // The action stages spotlight the content area; setup/done dim fully.
+    expect(steps.map((s) => s.focus), [
+      DemoFocus.none,
+      DemoFocus.body,
+      DemoFocus.body,
+      DemoFocus.body,
+      DemoFocus.none,
+    ]);
     // The demo store was deleted at the end — clean slate.
     expect(await stores.mostUsedStore(), isNull);
   });
 
   test('aborting stops early and still deletes the demo store', () async {
     final nav = _RecordingNav();
-    final controller = build(nav, <String>[]);
+    final controller = build(nav, <DemoStep>[]);
     controller.abort();
 
     await controller.run();
