@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/stores/stores_screen.dart';
+import '../l10n/l10n.dart';
+import 'locale.dart';
 
-class ShoppingListApp extends StatelessWidget {
+class ShoppingListApp extends ConsumerWidget {
   const ShoppingListApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
     return MaterialApp(
-      title: 'Shopping List',
+      onGenerateTitle: (context) => context.l10n.appTitle,
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF2563EB),
         useMaterial3: true,
       ),
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const StoresScreen(),
     );
   }

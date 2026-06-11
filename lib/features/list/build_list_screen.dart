@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/repositories.dart';
+import '../../l10n/l10n.dart';
 import '../onboarding/coach_marks.dart';
 import '../onboarding/onboarding_service.dart';
 import '../shopping/shopping_screen.dart';
@@ -39,25 +40,9 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
           store: ref.read(onboardingProvider),
           seenKey: CoachKeys.build,
           steps: [
-            CoachStep(
-              id: 'search',
-              key: _searchKey,
-              text: 'Type to add items. Each item remembers which aisle it '
-                  'lives in for this store.',
-            ),
-            CoachStep(
-              id: 'zones',
-              key: _zonesKey,
-              text: 'Set up your store\'s aisles (zones) and drag them into the '
-                  'order you walk.',
-              align: ContentAlign.bottom,
-            ),
-            CoachStep(
-              id: 'shop',
-              key: _shopKey,
-              text: 'When the list is ready, start shopping.',
-              align: ContentAlign.bottom,
-            ),
+            CoachStep(id: 'search', key: _searchKey, text: context.l10n.coachSearch),
+            CoachStep(id: 'zones', key: _zonesKey, text: context.l10n.coachZones),
+            CoachStep(id: 'shop', key: _shopKey, text: context.l10n.coachShop),
           ]);
     });
   }
@@ -119,7 +104,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
         actions: [
           IconButton(
             key: _zonesKey,
-            tooltip: 'Manage zones',
+            tooltip: context.l10n.manageZonesTooltip,
             icon: const Icon(Icons.shelves),
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ZonesScreen(store: widget.store),
@@ -131,7 +116,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
               builder: (_) => ShoppingScreen(listId: widget.listId, store: widget.store),
             )),
             icon: const Icon(Icons.shopping_cart_checkout),
-            label: const Text('Shop'),
+            label: Text(context.l10n.shopButton),
           ),
         ],
       ),
@@ -145,7 +130,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Add an item…',
+                hintText: context.l10n.addItemHint,
                 border: const OutlineInputBorder(),
                 suffixIcon: _query.isEmpty
                     ? null
@@ -182,15 +167,15 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
               leading: const Icon(Icons.add_circle_outline),
               title: Text(s.item.name),
               subtitle: s.zoneId == null
-                  ? const Text('pick a zone')
-                  : Text('used ${s.usageCount}×'),
+                  ? Text(context.l10n.pickAZone)
+                  : Text(context.l10n.usedTimes(s.usageCount)),
               onTap: () => _addExisting(s),
             ),
           if (!_hasExactMatch)
             ListTile(
               dense: true,
               leading: const Icon(Icons.add),
-              title: Text('Add "${_query.trim()}" as new item'),
+              title: Text(context.l10n.addAsNewItem(_query.trim())),
               onTap: _addNew,
             ),
         ],
@@ -200,11 +185,10 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
 
   Widget _entryList(List<EntryView> list) {
     if (list.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('Start typing above to add items to your list.',
-              textAlign: TextAlign.center),
+          padding: const EdgeInsets.all(32),
+          child: Text(context.l10n.startTypingHint, textAlign: TextAlign.center),
         ),
       );
     }
@@ -221,7 +205,7 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.tune),
-                tooltip: 'Quantity / note',
+                tooltip: context.l10n.quantityLabel,
                 onPressed: () => _editDetail(e),
               ),
               IconButton(
@@ -252,20 +236,21 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
               TextField(
                 controller: qtyController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Quantity (optional)'),
+                decoration:
+                    InputDecoration(labelText: context.l10n.quantityLabel),
               ),
               TextField(
                 controller: noteController,
-                decoration: const InputDecoration(labelText: 'Note (optional)'),
+                decoration: InputDecoration(labelText: context.l10n.noteLabel),
               ),
               const SizedBox(height: 8),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.shelves),
-                title: const Text('Zone'),
+                title: Text(context.l10n.zoneLabel),
                 subtitle: Text(zoneName),
                 trailing: TextButton(
-                  child: const Text('Change'),
+                  child: Text(context.l10n.changeButton),
                   onPressed: () async {
                     final picked = await pickZone(context, ref, widget.store.id);
                     if (picked == null) return;
@@ -286,10 +271,10 @@ class _BuildListScreenState extends ConsumerState<BuildListScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+                child: Text(context.l10n.cancel)),
             FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Save')),
+                child: Text(context.l10n.save)),
           ],
         ),
       ),

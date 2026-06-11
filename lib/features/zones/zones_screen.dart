@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
+import '../../l10n/l10n.dart';
 import '../onboarding/coach_marks.dart';
 import '../onboarding/onboarding_service.dart';
 import '../stores/stores_screen.dart' show promptName;
@@ -36,29 +37,20 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
           store: ref.read(onboardingProvider),
           seenKey: CoachKeys.zones,
           steps: [
+            CoachStep(id: 'reorder', key: _dragKey, text: context.l10n.coachReorder),
             CoachStep(
-              id: 'reorder',
-              key: _dragKey,
-              text: 'Drag a zone to set the order you walk the store — your '
-                  'shopping list follows this order.',
-            ),
+                id: 'rename-zone', key: _editKey, text: context.l10n.coachRenameZone),
             CoachStep(
-              id: 'rename-zone',
-              key: _editKey,
-              text: 'Rename an aisle here.',
-            ),
-            CoachStep(
-              id: 'add-zone',
-              key: _fabKey,
-              align: ContentAlign.top,
-              text: 'Add more aisles any time.',
-            ),
+                id: 'add-zone',
+                key: _fabKey,
+                align: ContentAlign.top,
+                text: context.l10n.coachAddZone),
           ]);
     });
   }
 
   Future<void> _addZone() async {
-    final name = await promptName(context, title: 'New zone');
+    final name = await promptName(context, title: context.l10n.newZoneTitle);
     if (name == null || name.isEmpty) return;
     await ref
         .read(zoneRepositoryProvider)
@@ -69,26 +61,22 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
   Widget build(BuildContext context) {
     final zones = ref.watch(zonesProvider(widget.store.id));
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.store.name} · zones')),
+      appBar: AppBar(title: Text(context.l10n.zonesTitle(widget.store.name))),
       floatingActionButton: FloatingActionButton.extended(
         key: _fabKey,
         onPressed: _addZone,
         icon: const Icon(Icons.add),
-        label: const Text('Zone'),
+        label: Text(context.l10n.zoneFab),
       ),
       body: zones.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'Add zones like Produce, Bakery, Dairy…\n'
-                  'Drag to set the order you usually walk them.',
-                  textAlign: TextAlign.center,
-                ),
+                padding: const EdgeInsets.all(32),
+                child: Text(context.l10n.zonesEmpty, textAlign: TextAlign.center),
               ),
             );
           }
@@ -115,7 +103,7 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
                       icon: const Icon(Icons.edit_outlined),
                       onPressed: () async {
                         final name = await promptName(context,
-                            title: 'Rename zone', initial: zone.name);
+                            title: context.l10n.renameZoneTitle, initial: zone.name);
                         if (name == null || name.isEmpty) return;
                         await ref
                             .read(zoneRepositoryProvider)

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
 import '../../data/repositories/repositories.dart';
+import '../../l10n/l10n.dart';
 import '../onboarding/coach_marks.dart';
 import '../onboarding/onboarding_service.dart';
 
@@ -41,24 +42,13 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
           store: ref.read(onboardingProvider),
           seenKey: CoachKeys.shop,
           steps: [
+            CoachStep(id: 'check', key: _itemKey, text: context.l10n.coachCheck),
+            CoachStep(id: 'view', key: _toggleKey, text: context.l10n.coachView),
             CoachStep(
-              id: 'check',
-              key: _itemKey,
-              text: 'Tick items off as you pick them — in the order you '
-                  'actually walk the store.',
-            ),
-            CoachStep(
-              id: 'view',
-              key: _toggleKey,
-              text: 'Group by aisle, or follow a flat walk-order list.',
-            ),
-            CoachStep(
-              id: 'complete',
-              key: _completeKey,
-              text: 'Finish to save your run — the app learns this route for '
-                  'next time.',
-              align: ContentAlign.top,
-            ),
+                id: 'complete',
+                key: _completeKey,
+                text: context.l10n.coachComplete,
+                align: ContentAlign.top),
           ]);
     });
   }
@@ -83,10 +73,9 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
      * torn-down context. popUntil returns to the stores list whether Shop was
      * opened over the build screen or directly from the store's cart action. */
     final messenger = ScaffoldMessenger.of(context);
+    final message = context.l10n.runSaved;
     Navigator.of(context).popUntil((route) => route.isFirst);
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Run saved — order learned for next time')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -103,15 +92,15 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: SegmentedButton<ShopView>(
               key: _toggleKey,
-              segments: const [
+              segments: [
                 ButtonSegment(
                     value: ShopView.grouped,
-                    icon: Icon(Icons.dashboard_outlined),
-                    label: Text('Grouped')),
+                    icon: const Icon(Icons.dashboard_outlined),
+                    label: Text(context.l10n.groupedView)),
                 ButtonSegment(
                     value: ShopView.walk,
-                    icon: Icon(Icons.route_outlined),
-                    label: Text('Walk order')),
+                    icon: const Icon(Icons.route_outlined),
+                    label: Text(context.l10n.walkOrderView)),
               ],
               selected: {_view},
               onSelectionChanged: (s) {
@@ -129,7 +118,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
         onComplete: entries.isEmpty ? null : _complete,
       ),
       body: entries.isEmpty
-          ? const Center(child: Text('No items on this list.'))
+          ? Center(child: Text(context.l10n.noItemsOnList))
           : _view == ShopView.grouped
               ? _GroupedList(
                   entries: entries, onToggle: _toggle, firstItemKey: _itemKey)
@@ -304,12 +293,12 @@ class _BottomBar extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Expanded(child: Text('$done of $total picked')),
+            Expanded(child: Text(context.l10n.pickedCount(done, total))),
             FilledButton.icon(
               key: completeKey,
               onPressed: onComplete,
               icon: const Icon(Icons.check),
-              label: const Text('Complete run'),
+              label: Text(context.l10n.completeRun),
             ),
           ],
         ),

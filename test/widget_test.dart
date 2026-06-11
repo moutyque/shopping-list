@@ -7,6 +7,7 @@ import 'package:shopping_list/app/providers.dart';
 import 'package:shopping_list/data/db/app_database.dart';
 import 'package:shopping_list/data/repositories/repositories.dart';
 import 'package:shopping_list/features/shopping/shopping_screen.dart';
+import 'package:shopping_list/l10n/l10n.dart';
 
 import 'support/fake_onboarding.dart';
 
@@ -127,7 +128,12 @@ void main() {
         listRepositoryProvider.overrideWithValue(repo),
         onboardingProvider.overrideWithValue(FakeOnboardingStore()),
       ],
-      child: const MaterialApp(home: ShoppingScreen(listId: 1, store: store)),
+      child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ShoppingScreen(listId: 1, store: store),
+      ),
     ));
     await tester.pumpAndSettle();
   }

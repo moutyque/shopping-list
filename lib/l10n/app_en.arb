@@ -1,0 +1,94 @@
+{
+  "@@locale": "en",
+  "appTitle": "Shopping List",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "nameHint": "Name",
+
+  "language": "Language",
+  "languageSystem": "System default",
+
+  "storesTitle": "My stores",
+  "howItWorks": "How it works",
+  "storeFab": "Store",
+  "noStoresTitle": "No stores yet",
+  "noStoresMessage": "Add a store to start building location-aware lists.",
+  "loadDemoStore": "Load a demo store",
+  "storeSubtitle": "Tap to build · cart to shop",
+  "shopTooltip": "Shop",
+  "renameStoreTooltip": "Rename store",
+  "deleteStoreTooltip": "Delete store",
+  "newStoreTitle": "New store",
+  "renameStoreTitle": "Rename store",
+  "deleteStoreConfirmTitle": "Delete {name}?",
+  "@deleteStoreConfirmTitle": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "deleteStoreConfirmBody": "This removes the store with its zones, items and shopping history.",
+  "tipsWillReplay": "Tips will show again as you use each screen.",
+  "coachAddStore": "Start here: add a store you shop at — each store keeps its own aisles and learned order.",
+  "coachDeleteStore": "Done exploring? Delete a store here — its zones, items and history go with it. Try it on the demo when you're finished.",
+
+  "manageZonesTooltip": "Manage zones",
+  "shopButton": "Shop",
+  "addItemHint": "Add an item…",
+  "pickAZone": "pick a zone",
+  "usedTimes": "used {count}×",
+  "@usedTimes": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "addAsNewItem": "Add \"{name}\" as new item",
+  "@addAsNewItem": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "startTypingHint": "Start typing above to add items to your list.",
+  "quantityLabel": "Quantity (optional)",
+  "noteLabel": "Note (optional)",
+  "zoneLabel": "Zone",
+  "changeButton": "Change",
+  "coachSearch": "Type to add an item, then pick its aisle — it's remembered next time.",
+  "coachZones": "Set up your store's aisles (zones) and drag them into the order you walk.",
+  "coachShop": "When the list is ready, start shopping.",
+
+  "groupedView": "Grouped",
+  "walkOrderView": "Walk order",
+  "noItemsOnList": "No items on this list.",
+  "pickedCount": "{done} of {total} picked",
+  "@pickedCount": {
+    "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "completeRun": "Complete run",
+  "runSaved": "Run saved — order learned for next time",
+  "coachCheck": "Tick items off as you pick them — in the order you actually walk the store.",
+  "coachView": "Group by aisle, or follow a flat walk-order list.",
+  "coachComplete": "Finish to save your run — the app learns this route for next time.",
+
+  "zonesTitle": "{store} · zones",
+  "@zonesTitle": {
+    "placeholders": { "store": { "type": "String" } }
+  },
+  "zoneFab": "Zone",
+  "newZoneTitle": "New zone",
+  "renameZoneTitle": "Rename zone",
+  "zonesEmpty": "Add zones like Produce, Bakery, Dairy…\nDrag to set the order you usually walk them.",
+  "coachReorder": "Drag a zone to set the order you walk the store — your shopping list follows this order.",
+  "coachRenameZone": "Rename an aisle here.",
+  "coachAddZone": "Add more aisles any time.",
+
+  "whichZone": "Which zone?",
+  "newZoneOption": "New zone…",
+
+  "demoStoreName": "Demo Market",
+  "demoZoneProduce": "Produce",
+  "demoZoneBakery": "Bakery",
+  "demoZoneDairy": "Dairy",
+  "demoZoneFrozen": "Frozen",
+  "demoItemBananas": "Bananas",
+  "demoItemApples": "Apples",
+  "demoItemBread": "Bread",
+  "demoItemCroissants": "Croissants",
+  "demoItemMilk": "Milk",
+  "demoItemEggs": "Eggs",
+  "demoItemPizza": "Frozen pizza"
+}

@@ -21,9 +21,27 @@ void main() {
 
   tearDown(() async => db.close());
 
+  const strings = DemoStrings(
+    storeName: 'Demo Market',
+    zones: ['Produce', 'Bakery', 'Dairy', 'Frozen'],
+    items: [
+      ('Bananas', 'Produce'),
+      ('Apples', 'Produce'),
+      ('Bread', 'Bakery'),
+      ('Croissants', 'Bakery'),
+      ('Milk', 'Dairy'),
+      ('Eggs', 'Dairy'),
+      ('Frozen pizza', 'Frozen'),
+    ],
+  );
+
   test('seedDemoStore creates a populated, ready-to-shop store', () async {
     final seed = await seedDemoStore(
-        stores: stores, zones: zones, catalog: catalog, lists: lists);
+        strings: strings,
+        stores: stores,
+        zones: zones,
+        catalog: catalog,
+        lists: lists);
 
     // 4 zones in walk order.
     final z = await zones.watchZones(seed.store.id).first;

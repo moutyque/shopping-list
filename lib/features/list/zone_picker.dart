@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
+import '../../l10n/l10n.dart';
 import '../stores/stores_screen.dart' show promptName;
 
 /// Bottom sheet to choose the zone an item lives in, with an inline "new zone"
@@ -21,7 +22,7 @@ Future<int?> pickZone(BuildContext context, WidgetRef ref, int storeId) {
             data: (list) => ListView(
               shrinkWrap: true,
               children: [
-                const ListTile(title: Text('Which zone?')),
+                ListTile(title: Text(context.l10n.whichZone)),
                 for (final z in list)
                   ListTile(
                     leading: const Icon(Icons.shelves),
@@ -30,9 +31,9 @@ Future<int?> pickZone(BuildContext context, WidgetRef ref, int storeId) {
                   ),
                 ListTile(
                   leading: const Icon(Icons.add),
-                  title: const Text('New zone…'),
+                  title: Text(context.l10n.newZoneOption),
                   onTap: () async {
-                    final name = await promptName(context, title: 'New zone');
+                    final name = await promptName(context, title: context.l10n.newZoneTitle);
                     if (name == null || name.isEmpty) return;
                     final zone =
                         await ref.read(zoneRepositoryProvider).createZone(storeId: storeId, name: name);

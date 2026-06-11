@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/locale.dart';
 import '../../app/providers.dart';
 import '../../data/db/app_database.dart';
+import '../../l10n/l10n.dart';
 import '../list/build_list_screen.dart';
 import '../onboarding/coach_marks.dart';
 import '../onboarding/demo_data.dart';
@@ -52,20 +54,54 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
           key: _fabKey,
           // The FAB is at the bottom edge, so the text must sit above it.
           align: ContentAlign.top,
-          text: 'Start here: add a store you shop at — '
-              'each store keeps its own aisles and learned order.',
+          text: context.l10n.coachAddStore,
         ),
       ];
-
 
   Future<void> _replayTutorial() async {
     final store = ref.read(onboardingProvider);
     await store.resetAll();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Tips will show again as you use each screen.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.tipsWillReplay)));
     await showCoachMarks(context,
         store: store, seenKey: CoachKeys.stores, steps: _storeSteps());
+  }
+
+  Future<void> _pickLanguage() async {
+    final current = ref.read(localeProvider)?.languageCode;
+    final l = context.l10n;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(l.language),
+        children: [
+          _langOption(context, label: l.languageSystem, code: 'system', current: current ?? 'system'),
+          _langOption(context, label: 'English', code: 'en', current: current ?? 'system'),
+          _langOption(context, label: 'Français', code: 'fr', current: current ?? 'system'),
+          _langOption(context, label: 'Español', code: 'es', current: current ?? 'system'),
+        ],
+      ),
+    );
+    if (choice == null) return;
+    await ref
+        .read(localeProvider.notifier)
+        .setLocale(choice == 'system' ? null : Locale(choice));
+  }
+
+  Widget _langOption(BuildContext context,
+      {required String label, required String code, required String current}) {
+    return SimpleDialogOption(
+      onPressed: () => Navigator.pop(context, code),
+      child: Row(
+        children: [
+          Icon(code == current ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 20),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
+    );
   }
 
   /// Resumes the store's in-progress list, creating one only when there is none
@@ -81,8 +117,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
         CoachStep(
           id: 'delete-store',
           key: _deleteKey,
-          text: 'Done exploring? Delete a store here — its zones, items and '
-              'history go with it. Try it on the demo when you\'re finished.',
+          text: context.l10n.coachDeleteStore,
         ),
       ];
 
@@ -96,32 +131,32 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   }
 
   Future<void> _addStore() async {
-    final name = await _promptName(context, title: 'New store');
+    final name = await _promptName(context, title: context.l10n.newStoreTitle);
     if (name == null || name.isEmpty) return;
     await ref.read(storeRepositoryProvider).createStore(name);
   }
 
   Future<void> _renameStore(Store store) async {
-    final name =
-        await _promptName(context, title: 'Rename store', initial: store.name);
+    final name = await _promptName(context,
+        title: context.l10n.renameStoreTitle, initial: store.name);
     if (name == null || name.isEmpty) return;
     await ref.read(storeRepositoryProvider).renameStore(store.id, name);
   }
 
   Future<void> _deleteStore(Store store) async {
+    final l = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete ${store.name}?'),
-        content: const Text(
-            'This removes the store with its zones, items and shopping history.'),
+        title: Text(l.deleteStoreConfirmTitle(store.name)),
+        content: Text(l.deleteStoreConfirmBody),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text(l.cancel)),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+              child: Text(l.delete)),
         ],
       ),
     );
@@ -132,7 +167,22 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   /// Seeds and opens a fully-populated sample store so a new user sees a real
   /// list straight away.
   Future<void> _loadDemo() async {
+    final l = context.l10n;
+    final strings = DemoStrings(
+      storeName: l.demoStoreName,
+      zones: [l.demoZoneProduce, l.demoZoneBakery, l.demoZoneDairy, l.demoZoneFrozen],
+      items: [
+        (l.demoItemBananas, l.demoZoneProduce),
+        (l.demoItemApples, l.demoZoneProduce),
+        (l.demoItemBread, l.demoZoneBakery),
+        (l.demoItemCroissants, l.demoZoneBakery),
+        (l.demoItemMilk, l.demoZoneDairy),
+        (l.demoItemEggs, l.demoZoneDairy),
+        (l.demoItemPizza, l.demoZoneFrozen),
+      ],
+    );
     final seed = await seedDemoStore(
+      strings: strings,
       stores: ref.read(storeRepositoryProvider),
       zones: ref.read(zoneRepositoryProvider),
       catalog: ref.read(catalogRepositoryProvider),
@@ -165,14 +215,20 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final stores = ref.watch(storesProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My stores'),
+        title: Text(l.storesTitle),
         actions: [
           IconButton(
+            icon: const Icon(Icons.language),
+            tooltip: l.language,
+            onPressed: _pickLanguage,
+          ),
+          IconButton(
             icon: const Icon(Icons.help_outline),
-            tooltip: 'How it works',
+            tooltip: l.howItWorks,
             onPressed: _replayTutorial,
           ),
         ],
@@ -181,7 +237,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
         key: _fabKey,
         onPressed: _addStore,
         icon: const Icon(Icons.add),
-        label: const Text('Store'),
+        label: Text(l.storeFab),
       ),
       body: stores.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -190,9 +246,9 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
           if (list.isEmpty) {
             return _Empty(
               icon: Icons.storefront_outlined,
-              title: 'No stores yet',
-              message: 'Add a store to start building location-aware lists.',
-              actionLabel: 'Load a demo store',
+              title: l.noStoresTitle,
+              message: l.noStoresMessage,
+              actionLabel: l.loadDemoStore,
               onAction: _loadDemo,
             );
           }
@@ -204,26 +260,26 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
               return ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.storefront)),
                 title: Text(store.name),
-                subtitle: const Text('Tap to build · cart to shop'),
+                subtitle: Text(l.storeSubtitle),
                 onTap: () => _openBuildList(store),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.shopping_cart_checkout),
-                      tooltip: 'Shop',
+                      tooltip: l.shopTooltip,
                       onPressed: () => _openShopping(store),
                     ),
                     IconButton(
                       icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Rename store',
+                      tooltip: l.renameStoreTooltip,
                       onPressed: () => _renameStore(store),
                     ),
                     IconButton(
                       // Key only on the first row, for the delete coach-mark.
                       key: i == 0 ? _deleteKey : null,
                       icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Delete store',
+                      tooltip: l.deleteStoreTooltip,
                       onPressed: () => _deleteStore(store),
                     ),
                   ],
@@ -249,15 +305,16 @@ Future<String?> _promptName(BuildContext context,
         controller: controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'Name'),
+        decoration: InputDecoration(hintText: context.l10n.nameHint),
         onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(context.l10n.cancel)),
         FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Save')),
+            child: Text(context.l10n.save)),
       ],
     ),
   );
